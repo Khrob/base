@@ -27,7 +27,7 @@ unset TIMEFORMAT
 # Record the time if we were successful...
 if [ -e $OUTPUT ]; then 
 	echo "Build completed in $COMPILE_TIME_OR_ERROR seconds"
-	echo "$(date), $COMPILE_TIME" >> $OUTFOLDER/buildtimes
+	echo "$(date), $COMPILE_TIME_OR_ERROR" >> $OUTFOLDER/buildtimes
 	echo "Running executable." 
 	$OUTPUT
 
