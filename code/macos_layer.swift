@@ -9,15 +9,27 @@ struct Input
     var left_pressed:Bool   = false
     var right_pressed:Bool  = false
 
-    // TODO (khrob): this.
-    // var mouse_x:Float       = 0.0
-    // var mouse_y:Float       = 0.0
-    // var mouse_old_x:Float   = 0.0
-    // var mouse_old_y:Float   = 0.0
+    var mouse_x:Float       = 0.0
+    var mouse_y:Float       = 0.0
+    var mouse_old_x:Float   = 0.0
+    var mouse_old_y:Float   = 0.0
+
+    var mouse_down:Bool     = false
 }
+
+
 
 var update_function:((Float, Input) -> ())?
 var render_function:(()->())?
+var startup_function:(()->())?
+
+
+func load_texture (_ path:String) -> Int
+{
+    return -1
+}
+
+
 
 private class Window_Delegate : NSObject, NSWindowDelegate
 {
@@ -87,7 +99,7 @@ func open_window ()
 	let delegate = Window_Delegate()
 	let window = Window(contentRect: frame, styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
 
-    let metal_view = MTKView(frame:frame, device:MTLCreateSystemDefaultDevice())
+    let metal_view = Window_View(frame:frame, device:MTLCreateSystemDefaultDevice())
     metal_view.colorPixelFormat = .bgra8Unorm
     metal_view.depthStencilPixelFormat = .depth32Float
     metal_view.preferredFramesPerSecond = 60
@@ -102,8 +114,11 @@ func open_window ()
     window.contentView = metal_view
 	window.center()
     window.orderFrontRegardless()
-    
+    window.contentView?.updateTrackingAreas()
+
     app.activate(ignoringOtherApps:true)
+
+    startup_function?()
 
 	while (running)
 	{
@@ -168,7 +183,7 @@ private class Renderer: NSObject, MTKViewDelegate
         pipeline_state_descriptor.fragmentFunction = fragment_shader
         pipeline_state_descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
 
-        pipelineState = try? device.makeRenderPipelineState(descriptor: pipeline_state_descriptor)
+        pipelineState = try! device.makeRenderPipelineState(descriptor: pipeline_state_descriptor)
 
         if pipelineState == nil { fatalError("Couldn't create the pipeline state.") }
         else { print ("Created the pipeline state OK") }
@@ -185,8 +200,9 @@ private class Renderer: NSObject, MTKViewDelegate
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize)
     {
         print ("\(#function) \(size)")
+        (view as! Window_View).updateTrackingAreas()
     }
-    
+
     func draw(in view: MTKView)
     {
         //  superhacky
@@ -219,12 +235,82 @@ private class Renderer: NSObject, MTKViewDelegate
             indexBuffer: vertex_buffer,
             indexBufferOffset: 0)
 
+        render_function?()
+
         render_encoder.endEncoding()
 
         command_buffer!.present(view.currentDrawable!)
         command_buffer!.commit()
     }
 }
+
+class Window_View : MTKView
+{
+    var tracking_area:NSTrackingArea? = nil
+
+    override func updateTrackingAreas()
+    {
+        print(#function)
+        if tracking_area != nil { removeTrackingArea(tracking_area!) }
+        tracking_area = NSTrackingArea(rect: self.bounds, options: [.activeAlways, .mouseMoved] , owner: self, userInfo: nil)
+        addTrackingArea(tracking_area!)
+    }
+    
+    override func mouseExited(with event: NSEvent)
+    {
+        // print(#function)
+        super.mouseExited(with: event)
+    }
+    
+    override func mouseEntered(with event: NSEvent)
+    {
+        // print(#function)
+        super.mouseEntered(with: event)
+    }
+    
+    override func mouseMoved(with event: NSEvent)
+    {
+        // print(#function)
+        super.mouseMoved(with: event)
+        mouse_event(event)
+    }
+    
+    override func mouseDragged(with event: NSEvent)
+    {
+        // print(#function)
+        super.mouseDragged(with: event)
+        mouse_event(event)
+    }
+    
+    override func mouseDown(with event: NSEvent)
+    {
+        // print(#function)
+        super.mouseDown(with: event)
+        mouse_event(event)
+        input.mouse_down = true
+    }
+    
+    override func mouseUp(with event: NSEvent)
+    {
+        // print(#function)
+        super.mouseUp(with: event)
+        mouse_event(event)
+        input.mouse_down = false
+    }
+
+    func mouse_event (_ event:NSEvent)
+    {
+        let window_size = event.window!.contentView!.bounds.size
+        let point = CGPoint(x: event.locationInWindow.x / window_size.width, y: 1 - event.locationInWindow.y / window_size.height)
+
+        input.mouse_old_x = input.mouse_x
+        input.mouse_old_x = input.mouse_y
+
+        input.mouse_x = Float(point.x)
+        input.mouse_y = Float(point.y)
+    }
+}
+
 
 func read_file (path:String) -> String?
 {
